@@ -45,7 +45,7 @@ const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
 
 
 
-NTSTATUS (*LXNtQueryInformationProcess)(
+NTSTATUS (WINAPI *LXNtQueryInformationProcess)(
     HANDLE           ProcessHandle,
     PROCESSINFOCLASS ProcessInformationClass,
     PVOID            ProcessInformation,
@@ -54,14 +54,6 @@ NTSTATUS (*LXNtQueryInformationProcess)(
 );
 
 
-
-
-NTSTATUS(* LXNtReadVirtualMemory)(
-    IN HANDLE               ProcessHandle,
-    IN PVOID                BaseAddress,
-    OUT PVOID               Buffer,
-    IN ULONG                NumberOfBytesToRead,
-    OUT PULONG              NumberOfBytesReaded OPTIONAL);
 
 
 
@@ -97,7 +89,7 @@ BOOL GetProcessFullPathByProcessID(ULONG32 ProcessID, WCHAR* BufferData, ULONG B
     }
 
     PEB	Peb = { 0 };
-    status = LXNtReadVirtualMemory(ProcessHandle, pbi.PebBaseAddress, &Peb, sizeof(PEB), (PULONG)&ReturnLength);
+    status = ReadProcessMemory(ProcessHandle, pbi.PebBaseAddress, &Peb, sizeof(PEB), (SIZE_T*)&ReturnLength);
 
     if (!NT_SUCCESS(status)) {
         CloseHandle(ProcessHandle);
@@ -106,8 +98,8 @@ BOOL GetProcessFullPathByProcessID(ULONG32 ProcessID, WCHAR* BufferData, ULONG B
     }
 
     RTL_USER_PROCESS_PARAMETERS RtlUserProcessParameters = { 0 };
-    status = LXNtReadVirtualMemory(ProcessHandle, Peb.ProcessParameters, &RtlUserProcessParameters,
-        sizeof(RTL_USER_PROCESS_PARAMETERS), (PULONG)&ReturnLength);
+    status = ReadProcessMemory(ProcessHandle, Peb.ProcessParameters, &RtlUserProcessParameters,
+        sizeof(RTL_USER_PROCESS_PARAMETERS), (SIZE_T*)&ReturnLength);
 
     if (!NT_SUCCESS(status)) {
         CloseHandle(ProcessHandle);
@@ -163,7 +155,7 @@ BOOL GetCmdLineByProcessID(ULONG32 ProcessID, WCHAR* BufferData, ULONG BufferLeg
     }
 
     PEB	Peb = { 0 };
-    status = LXNtReadVirtualMemory(ProcessHandle, pbi.PebBaseAddress, &Peb, sizeof(PEB), (PULONG)&ReturnLength);
+    status = ReadProcessMemory(ProcessHandle, pbi.PebBaseAddress, &Peb, sizeof(PEB), (PULONG)&ReturnLength);
 
     if (!NT_SUCCESS(status)) {
         CloseHandle(ProcessHandle);
@@ -172,7 +164,7 @@ BOOL GetCmdLineByProcessID(ULONG32 ProcessID, WCHAR* BufferData, ULONG BufferLeg
     }
 
     RTL_USER_PROCESS_PARAMETERS RtlUserProcessParameters = { 0 };
-    status = LXNtReadVirtualMemory(ProcessHandle, Peb.ProcessParameters, &RtlUserProcessParameters,
+    status = ReadProcessMemory(ProcessHandle, Peb.ProcessParameters, &RtlUserProcessParameters,
         sizeof(RTL_USER_PROCESS_PARAMETERS), (PULONG)&ReturnLength);
 
     if (!NT_SUCCESS(status)) {
@@ -223,21 +215,9 @@ int enumDevicesSessionInfo(vector<SessionInfo>* vecSessionInfo, EDataFlow Render
 
     SessionInfo sessionInfo;
 
-    LXNtReadVirtualMemory = 
-        (
-
-            NTSTATUS(*)(
-                HANDLE               ProcessHandle,
-                PVOID                BaseAddress,
-                PVOID               Buffer,
-                ULONG                NumberOfBytesToRead,
-                PULONG              NumberOfBytesReaded)
-            )
-        GetProcAddress(hNtDll, "NtReadVirtualMemory");
-
     LXNtQueryInformationProcess =
         (
-            __kernel_entry NTSTATUS(*)(
+            __kernel_entry NTSTATUS(WINAPI*)(
                 HANDLE           ProcessHandle,
                 PROCESSINFOCLASS ProcessInformationClass,
                 PVOID            ProcessInformation,
@@ -247,7 +227,7 @@ int enumDevicesSessionInfo(vector<SessionInfo>* vecSessionInfo, EDataFlow Render
             )GetProcAddress(hNtDll, "NtQueryInformationProcess");
 
 
-    if (LXNtReadVirtualMemory==NULL|| LXNtQueryInformationProcess == NULL)
+    if (LXNtQueryInformationProcess == NULL)
     {
         return -1;
     }
